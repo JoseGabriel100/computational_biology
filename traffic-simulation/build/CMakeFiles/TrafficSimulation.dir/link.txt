@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/TrafficSimulation.dir/main.cpp.o -o TrafficSimulation  /usr/lib/x86_64-linux-gnu/libtcl.so /usr/lib/x86_64-linux-gnu/libtk.so 

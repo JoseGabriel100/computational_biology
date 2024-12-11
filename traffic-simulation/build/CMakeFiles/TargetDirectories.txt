@@ -1,3 +1,0 @@
-/home/jose/Desktop/sbm/traffic-simulation/build/CMakeFiles/TrafficSimulation.dir
-/home/jose/Desktop/sbm/traffic-simulation/build/CMakeFiles/edit_cache.dir
-/home/jose/Desktop/sbm/traffic-simulation/build/CMakeFiles/rebuild_cache.dir

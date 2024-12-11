@@ -182,3 +182,7 @@ Para ejecutar la simulación, simplemente ejecuta el archivo binario generado:
     - Crear canvas para dibujar
     - Programar la primera actualización de la GUI
     - Iniciar el bucle principal de Tk
+
+## Resultados
+
+![Simulación](assets/img.png)
