@@ -1,0 +1,29 @@
+ $Initial_conditions   
+   // parametros  
+               
+ beta =  0.5 0.0 0.5 1.0 $U; // defecto  minimo medio maximo distribucion
+ gamma_ = 0.5 0.0 0.5 1.0 $U;
+ mu  = 0.5 0.0 0.5 1.0 $U;
+
+ $Equations
+ N1 = 100;     // variable outcome
+
+$StartTime 0.0                 // Simulation initial time
+$StopTime  1.0		       // Simulation stop time
+$timestep  1		       // Timestep, usually between 0.1 and 0.0001	  
+$timefigs  1		       // To save data for figures 
+ 
+$plot N1;
+      // plot the variables of the list		
+      // The list should ends in ; (semicolon)
+
+$Method $Rk4			   // Four Order Runge-Kutta 
+
+$lhs 50 beta gamma_ mu;
+         // to run LHS with 10 simulations using 
+	// parameters in the list.
+	// The parameters should have ranges already defined.
+	// The list should end in ; (semicolon)
+        //$seed 3456;  
+         // Set the random number generator with the computer clock ($Clock)
+$seed $clock;

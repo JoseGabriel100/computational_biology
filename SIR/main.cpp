@@ -27,7 +27,6 @@ struct SimulationData
 const double beta = 0.9;             // Tasa de transmisión
 const double gamma_ = 0.1;           // Tasa de recuperación
 const double mu = 0.0;               // Tasa de mortalidad
-const double dt = 0.1;               // Paso de tiempo
 const int numPeople = 100;           // Número de personas
 const double infectionRadius = 25.0; // Radio de infección
 
@@ -76,7 +75,7 @@ void updatePopulation(SimulationData &data)
 
   for (auto &person : data.people)
   {
-    if (person.state == 'S' || person.state == 'R')
+    if (person.state == 'S')
     {
       for (const auto &other : data.people)
       {
@@ -96,13 +95,13 @@ void updatePopulation(SimulationData &data)
     }
   }
 
-  // Movimiento aleatorio
+  // Movimiento aleatorio con distribución uniforme
   for (auto &person : data.people)
   {
     if (person.state != 'D')
-    {                                    // Solo las personas vivas se mueven
-      person.x += (rand() % 3 - 1) * 10; // Movimiento en x
-      person.y += (rand() % 3 - 1) * 10; // Movimiento en y
+    {                                 // Solo las personas vivas se mueven
+      person.x += (rand() % 31 - 15); // Movimiento en x en el rango [-15, 15]
+      person.y += (rand() % 31 - 15); // Movimiento en y en el rango [-15, 15]
       if (person.x < 0)
         person.x = 0;
       if (person.x > 500)
@@ -176,6 +175,16 @@ void updateGUI(void *clientData)
     std::string command = ".canvas create oval " + std::to_string(person.x - 5) + " " + std::to_string(person.y - 5) + " " +
                           std::to_string(person.x + 5) + " " + std::to_string(person.y + 5) + " -fill " + color;
     Tcl_Eval(interp, command.c_str());
+
+    // Dibujar el radio de infección para las personas infectadas
+    if (person.state == 'I')
+    {
+      std::string radiusCommand = ".canvas create oval " + std::to_string(person.x - infectionRadius) + " " +
+                                  std::to_string(person.y - infectionRadius) + " " +
+                                  std::to_string(person.x + infectionRadius) + " " +
+                                  std::to_string(person.y + infectionRadius) + " -outline red";
+      Tcl_Eval(interp, radiusCommand.c_str());
+    }
   }
 
   // Programar la siguiente actualización
@@ -218,7 +227,7 @@ int main(int argc, char *argv[])
   data.interp = interp;
 
   // Inicializar la población con un número específico de personas infectadas
-  int initialInfected = 10; // Puedes cambiar este valor según sea necesario
+  int initialInfected = 5; // Puedes cambiar este valor según sea necesario
   initializePopulation(data, initialInfected);
 
   // Crear comandos Tcl para actualizar la GUI
