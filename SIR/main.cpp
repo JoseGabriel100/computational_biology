@@ -75,7 +75,7 @@ void updatePopulation(SimulationData &data)
 
   for (auto &person : data.people)
   {
-    if (person.state == 'S')
+    if (person.state == 'S' || person.state == 'R')
     {
       for (const auto &other : data.people)
       {
@@ -100,8 +100,8 @@ void updatePopulation(SimulationData &data)
   {
     if (person.state != 'D')
     {                                 // Solo las personas vivas se mueven
-      person.x += (rand() % 31 - 15); // Movimiento en x en el rango [-15, 15]
-      person.y += (rand() % 31 - 15); // Movimiento en y en el rango [-15, 15]
+      person.x += (rand() % 51 - 25); // Movimiento en x en el rango [-15, 15]
+      person.y += (rand() % 51 - 25); // Movimiento en y en el rango [-15, 15]
       if (person.x < 0)
         person.x = 0;
       if (person.x > 500)

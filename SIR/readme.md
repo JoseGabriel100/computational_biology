@@ -86,3 +86,7 @@ initializePopulation(data, initialInfected);
 Tcl_CreateCommand(interp, "startSimulation", startSimulation, reinterpret_cast<void *>(&data), NULL);
 Tcl_CreateCommand(interp, "stopSimulation", stopSimulation, reinterpret_cast<void *>(&data), NULL);
 ```
+
+## Simulación
+
+![SIR simualacion](assets/sir.png)
