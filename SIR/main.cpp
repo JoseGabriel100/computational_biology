@@ -8,6 +8,7 @@
 #include <atomic>
 #include <thread>
 #include <mutex>
+#include <fstream>
 
 // Estructura para representar una persona
 struct Person
@@ -24,11 +25,16 @@ struct SimulationData
 };
 
 // Parámetros del modelo SIR
-const double beta = 0.9;             // Tasa de transmisión
-const double gamma_ = 0.1;           // Tasa de recuperación
-const double mu = 0.0;               // Tasa de mortalidad
+double beta = 0.9;                   // Tasa de transmisión
+double gamma_ = 0.1;                 // Tasa de recuperación
+double mu = 0.0;                     // Tasa de mortalidad
 const int numPeople = 100;           // Número de personas
 const double infectionRadius = 25.0; // Radio de infección
+
+// Global variables for LHS matrix
+const int NVAR = 20;
+const int NRUNS = 100;
+double datalhs[NVAR + 1][NRUNS + 1];
 
 // Variables globales para controlar la simulación
 std::atomic<bool> simulationRunning(false);
@@ -207,45 +213,99 @@ int stopSimulation(ClientData clientData, Tcl_Interp *interp, int argc, const ch
   return TCL_OK;
 }
 
-// Función principal
+// Function to read LHS matrix
+void readLHSMatrix()
+{
+  std::ifstream lhsmatrix("lhsmatrix", std::ios::in);
+  if (!lhsmatrix)
+  {
+    std::cerr << "Lhsmatrix file not found!" << std::endl;
+    exit(1);
+  }
+  int nvar, nruns, x;
+  lhsmatrix >> nvar >> nruns >> x >> x;
+  if (nruns != NRUNS || nvar > NVAR)
+  {
+    std::cerr << "Check -nruns- or -nvar- values in lhsmatrix and this program" << std::endl;
+    exit(1);
+  }
+  for (int i = 1; i <= nvar; i++)
+  {
+    for (int j = 1; j <= nruns; j++)
+    {
+      lhsmatrix >> datalhs[i][j];
+    }
+  }
+  lhsmatrix.close();
+}
+
+// Function to run the simulation for a specific run
+void runSimulation(int run, int print)
+{
+  // Set parameters from LHS matrix
+  beta = datalhs[1][run];
+  gamma_ = datalhs[2][run];
+  mu = datalhs[3][run];
+  // ...set other parameters as needed...
+
+  // Initialize population
+  SimulationData data;
+  data.interp = Tcl_CreateInterp();
+  initializePopulation(data, 5); // Example: 5 initial infected
+
+  // Run the simulation for a specified number of steps
+  for (int step = 0; step < 1000; ++step)
+  {
+    updatePopulation(data);
+  }
+
+  // Save output variables
+  int susceptibleCount = 0, infectedCount = 0, recoveredCount = 0, deadCount = 0;
+  for (const auto &person : data.people)
+  {
+    switch (person.state)
+    {
+    case 'S':
+      susceptibleCount++;
+      break;
+    case 'I':
+      infectedCount++;
+      break;
+    case 'R':
+      recoveredCount++;
+      break;
+    case 'D':
+      deadCount++;
+      break;
+    }
+  }
+
+  // Print or save results
+  if (print)
+  {
+    std::cout << "Run " << run << ": "
+              << "S: " << susceptibleCount << ", "
+              << "I: " << infectedCount << ", "
+              << "R: " << recoveredCount << ", "
+              << "D: " << deadCount << std::endl;
+  }
+  // Save to file
+  std::ofstream stream(std::to_string(run) + ".txt");
+  stream << "S: " << susceptibleCount << "\n"
+         << "I: " << infectedCount << "\n"
+         << "R: " << recoveredCount << "\n"
+         << "D: " << deadCount << std::endl;
+  stream.close();
+}
+
+// Main function
 int main(int argc, char *argv[])
 {
-  Tcl_Interp *interp = Tcl_CreateInterp();
-  if (Tcl_Init(interp) == TCL_ERROR)
+  int print = (argc >= 2) ? atoi(argv[1]) : 0;
+  readLHSMatrix(); // Add this line to read the LHS matrix
+  for (int run = 1; run <= NRUNS; ++run)
   {
-    std::cerr << "Error initializing Tcl" << std::endl;
-    return 1;
+    runSimulation(run, print);
   }
-  if (Tk_Init(interp) == TCL_ERROR)
-  {
-    std::cerr << "Error initializing Tk" << std::endl;
-    return 1;
-  }
-
-  // Crear datos de la simulación
-  SimulationData data;
-  data.interp = interp;
-
-  // Inicializar la población con un número específico de personas infectadas
-  int initialInfected = 5; // Puedes cambiar este valor según sea necesario
-  initializePopulation(data, initialInfected);
-
-  // Crear comandos Tcl para actualizar la GUI
-  Tcl_CreateCommand(interp, "startSimulation", startSimulation, reinterpret_cast<void *>(&data), NULL);
-  Tcl_CreateCommand(interp, "stopSimulation", stopSimulation, reinterpret_cast<void *>(&data), NULL);
-
-  // Configurar la GUI
-  Tcl_Eval(interp, "wm title . {SIR Model Simulation}");
-  Tcl_Eval(interp, "canvas .canvas -width 500 -height 500 -bg white");
-  Tcl_Eval(interp, "button .start -text {Start Simulation} -command {startSimulation}");
-  Tcl_Eval(interp, "button .stop -text {Stop Simulation} -command {stopSimulation}");
-  Tcl_Eval(interp, "pack .start .stop .canvas");
-
-  // Programar la primera actualización de la GUI
-  Tcl_CreateTimerHandler(100, updateGUI, reinterpret_cast<void *>(&data));
-
-  // Iniciar el bucle principal de Tk
-  Tk_MainLoop();
-
   return 0;
 }
