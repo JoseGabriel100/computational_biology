@@ -1,25 +1,27 @@
  $Initial_conditions   
    // parametros  
                
- beta =  0.5 0.0 0.5 1.0 $U; // defecto  minimo medio maximo distribucion
- gamma_ = 0.5 0.0 0.5 1.0 $U;
- mu  = 0.5 0.0 0.5 1.0 $U;
+beta =  0.5 0.0 0.5 1.0 $U; // defecto  minimo medio maximo distribucion
+gamma_ = 0.1 0.0 0.1 1.0 $U;
+mu  = 0.1 0.0 0.1 1.0 $U;
 
- $Equations
- N1 = 100;     // variable outcome
-
+$Equations
+S = 100;     // variable outcome
+I = 100;
+R = 100;
+D = 100;
 $StartTime 0.0                 // Simulation initial time
-$StopTime  1.0		       // Simulation stop time
+$StopTime  100.0		       // Simulation stop time
 $timestep  1		       // Timestep, usually between 0.1 and 0.0001	  
 $timefigs  1		       // To save data for figures 
  
-$plot N1;
+$plot S I R D;
       // plot the variables of the list		
       // The list should ends in ; (semicolon)
 
 $Method $Rk4			   // Four Order Runge-Kutta 
 
-$lhs 50 beta gamma_ mu;
+$lhs 2 beta gamma_ mu;
          // to run LHS with 10 simulations using 
 	// parameters in the list.
 	// The parameters should have ranges already defined.

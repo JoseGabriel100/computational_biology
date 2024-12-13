@@ -7,6 +7,9 @@ rm -rf build
 mkdir build
 cd build
 
+# Copiar el generador del lhsmatrix
+cp ../lhsmatrix .
+
 # Configurar el proyecto con CMake
 cmake ..
 
@@ -14,4 +17,4 @@ cmake ..
 make
 
 # Ejecutar la simulación
-./SIRSimulation
+./SIRSimulation --no-gui

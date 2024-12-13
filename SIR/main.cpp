@@ -9,6 +9,9 @@
 #include <thread>
 #include <mutex>
 #include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <unistd.h> // Para getcwd
 
 // Estructura para representar una persona
 struct Person
@@ -25,16 +28,9 @@ struct SimulationData
 };
 
 // Parámetros del modelo SIR
-double beta = 0.9;                   // Tasa de transmisión
-double gamma_ = 0.1;                 // Tasa de recuperación
-double mu = 0.0;                     // Tasa de mortalidad
+const double dt = 0.1;               // Paso de tiempo
 const int numPeople = 100;           // Número de personas
 const double infectionRadius = 25.0; // Radio de infección
-
-// Global variables for LHS matrix
-const int NVAR = 20;
-const int NRUNS = 100;
-double datalhs[NVAR + 1][NRUNS + 1];
 
 // Variables globales para controlar la simulación
 std::atomic<bool> simulationRunning(false);
@@ -55,13 +51,14 @@ void initializePopulation(SimulationData &data, int initialInfected)
 }
 
 // Función para actualizar el estado de la población
-void updatePopulation(SimulationData &data)
+void updatePopulation(SimulationData &data, double beta, double gamma_, double mu, int &susceptibleCount, int &infectedCount, int &recoveredCount, int &deadCount)
 {
-  int susceptibleCount = 0;
-  int infectedCount = 0;
-  int recoveredCount = 0;
-  int deadCount = 0;
+  susceptibleCount = 0;
+  infectedCount = 0;
+  recoveredCount = 0;
+  deadCount = 0;
 
+  // Primero, procesar las transiciones de estado
   for (auto &person : data.people)
   {
     if (person.state == 'I')
@@ -79,9 +76,10 @@ void updatePopulation(SimulationData &data)
     }
   }
 
+  // Luego, procesar las infecciones
   for (auto &person : data.people)
   {
-    if (person.state == 'S')
+    if (person.state == 'S' || person.state == 'R')
     {
       for (const auto &other : data.people)
       {
@@ -106,8 +104,8 @@ void updatePopulation(SimulationData &data)
   {
     if (person.state != 'D')
     {                                 // Solo las personas vivas se mueven
-      person.x += (rand() % 31 - 15); // Movimiento en x en el rango [-15, 15]
-      person.y += (rand() % 31 - 15); // Movimiento en y en el rango [-15, 15]
+      person.x += (rand() % 51 - 25); // Movimiento en x en el rango [-15, 15]
+      person.y += (rand() % 51 - 25); // Movimiento en y en el rango [-15, 15]
       if (person.x < 0)
         person.x = 0;
       if (person.x > 500)
@@ -138,12 +136,6 @@ void updatePopulation(SimulationData &data)
       break;
     }
   }
-
-  // Imprimir los resultados
-  std::cout << "Susceptible: " << susceptibleCount
-            << ", Infected: " << infectedCount
-            << ", Recovered: " << recoveredCount
-            << ", Dead: " << deadCount << std::endl;
 }
 
 // Función para actualizar la GUI
@@ -152,10 +144,16 @@ void updateGUI(void *clientData)
   SimulationData *data = reinterpret_cast<SimulationData *>(clientData);
   Tcl_Interp *interp = data->interp;
 
+  // Obtener los valores de beta, gamma_ y mu desde los datos de la simulación
+  double beta = 0.9;   // Valor por defecto, debería ser actualizado
+  double gamma_ = 0.1; // Valor por defecto, debería ser actualizado
+  double mu = 0.0;     // Valor por defecto, debería ser actualizado
+
   // Actualizar la población
   if (simulationRunning)
   {
-    updatePopulation(*data);
+    int susceptibleCount, infectedCount, recoveredCount, deadCount;
+    updatePopulation(*data, beta, gamma_, mu, susceptibleCount, infectedCount, recoveredCount, deadCount);
   }
 
   // Actualizar la GUI
@@ -213,99 +211,135 @@ int stopSimulation(ClientData clientData, Tcl_Interp *interp, int argc, const ch
   return TCL_OK;
 }
 
-// Function to read LHS matrix
-void readLHSMatrix()
+// Función para ejecutar la simulación sin GUI
+void runSimulationWithoutGUI(SimulationData &data, int initialInfected, double **datalhs, int nvar, int nruns)
 {
+  // Ejecutar la simulación para cada conjunto de parámetros
+  for (int run = 1; run <= nruns; ++run)
+  {
+    double beta = datalhs[0][run];
+    double gamma_ = datalhs[1][run];
+    double mu = datalhs[2][run];
+
+    // Inicializar la población para cada ejecución
+    initializePopulation(data, initialInfected);
+
+    // Crear un archivo para guardar los resultados de esta ejecución
+    std::ostringstream filename;
+    filename << std::setw(4) << std::setfill('0') << run;
+    std::ofstream outfile(filename.str());
+    if (!outfile)
+    {
+      std::cerr << "Error: No se pudo crear el archivo " << filename.str() << std::endl;
+      return;
+    }
+
+    // Ejecutar la simulación para el conjunto de parámetros actual
+    for (int t = 0; t <= 100; ++t)
+    { // Simulación de 100 pasos de tiempo
+      int susceptibleCount, infectedCount, recoveredCount, deadCount;
+      updatePopulation(data, beta, gamma_, mu, susceptibleCount, infectedCount, recoveredCount, deadCount);
+
+      // Guardar los resultados en el archivo
+      outfile << t << "\t" << susceptibleCount << "\t" << infectedCount << "\t" << recoveredCount << "\t" << deadCount << "\n";
+    }
+
+    outfile.close();
+
+    // Imprimir los resultados para el conjunto de parámetros actual
+    std::cout << "Run " << run << ": beta=" << beta << ", gamma_=" << gamma_ << ", mu=" << mu << std::endl;
+  }
+}
+
+// Función principal
+int main(int argc, char *argv[])
+{
+  bool showGUI = true;
+  if (argc > 1 && std::string(argv[1]) == "--no-gui")
+  {
+    showGUI = false;
+  }
+
+  // Crear datos de la simulación
+  SimulationData data;
+
+  // Leer el archivo lhsmatrix y ejecutar la simulación para cada conjunto de parámetros
   std::ifstream lhsmatrix("lhsmatrix", std::ios::in);
   if (!lhsmatrix)
   {
-    std::cerr << "Lhsmatrix file not found!" << std::endl;
-    exit(1);
+    std::cerr << "Error: Lhsmatrix file not found!" << std::endl;
+    return 1;
   }
-  int nvar, nruns, x;
-  lhsmatrix >> nvar >> nruns >> x >> x;
-  if (nruns != NRUNS || nvar > NVAR)
+
+  int nvar, nruns;
+  lhsmatrix >> nvar >> nruns;
+
+  // Crear matriz dinámica para almacenar los datos de LHS
+  double **datalhs = new double *[nvar];
+  for (int i = 0; i < nvar; ++i)
   {
-    std::cerr << "Check -nruns- or -nvar- values in lhsmatrix and this program" << std::endl;
-    exit(1);
+    datalhs[i] = new double[nruns + 1];
   }
-  for (int i = 1; i <= nvar; i++)
+
+  // Ignorar la primera fila del archivo
+  std::string line;
+  std::getline(lhsmatrix, line);
+
+  for (int x = 0; x < nvar; x++)
   {
-    for (int j = 1; j <= nruns; j++)
+    for (int y = 1; y <= nruns; y++)
     {
-      lhsmatrix >> datalhs[i][j];
+      lhsmatrix >> datalhs[x][y];
     }
   }
   lhsmatrix.close();
-}
 
-// Function to run the simulation for a specific run
-void runSimulation(int run, int print)
-{
-  // Set parameters from LHS matrix
-  beta = datalhs[1][run];
-  gamma_ = datalhs[2][run];
-  mu = datalhs[3][run];
-  // ...set other parameters as needed...
+  // Ejecutar la simulación sin GUI
+  int initialInfected = 5; // Puedes cambiar este valor según sea necesario
+  runSimulationWithoutGUI(data, initialInfected, datalhs, nvar, nruns);
 
-  // Initialize population
-  SimulationData data;
-  data.interp = Tcl_CreateInterp();
-  initializePopulation(data, 5); // Example: 5 initial infected
-
-  // Run the simulation for a specified number of steps
-  for (int step = 0; step < 1000; ++step)
+  if (showGUI)
   {
-    updatePopulation(data);
-  }
-
-  // Save output variables
-  int susceptibleCount = 0, infectedCount = 0, recoveredCount = 0, deadCount = 0;
-  for (const auto &person : data.people)
-  {
-    switch (person.state)
+    Tcl_Interp *interp = Tcl_CreateInterp();
+    if (Tcl_Init(interp) == TCL_ERROR)
     {
-    case 'S':
-      susceptibleCount++;
-      break;
-    case 'I':
-      infectedCount++;
-      break;
-    case 'R':
-      recoveredCount++;
-      break;
-    case 'D':
-      deadCount++;
-      break;
+      std::cerr << "Error initializing Tcl" << std::endl;
+      return 1;
     }
+    if (Tk_Init(interp) == TCL_ERROR)
+    {
+      std::cerr << "Error initializing Tk" << std::endl;
+      return 1;
+    }
+    data.interp = interp;
+
+    // Inicializar la población con un número específico de personas infectadas
+    initializePopulation(data, initialInfected);
+
+    // Crear comandos Tcl para actualizar la GUI
+    Tcl_CreateCommand(interp, "startSimulation", startSimulation, reinterpret_cast<void *>(&data), NULL);
+    Tcl_CreateCommand(interp, "stopSimulation", stopSimulation, reinterpret_cast<void *>(&data), NULL);
+
+    // Configurar la GUI
+    Tcl_Eval(interp, "wm title . {SIR Model Simulation}");
+    Tcl_Eval(interp, "canvas .canvas -width 500 -height 500 -bg white");
+    Tcl_Eval(interp, "button .start -text {Start Simulation} -command {startSimulation}");
+    Tcl_Eval(interp, "button .stop -text {Stop Simulation} -command {stopSimulation}");
+    Tcl_Eval(interp, "pack .start .stop .canvas");
+
+    // Programar la primera actualización de la GUI
+    Tcl_CreateTimerHandler(100, updateGUI, reinterpret_cast<void *>(&data));
+
+    // Iniciar el bucle principal de Tk
+    Tk_MainLoop();
   }
 
-  // Print or save results
-  if (print)
+  // Liberar memoria de la matriz dinámica
+  for (int i = 0; i < nvar; ++i)
   {
-    std::cout << "Run " << run << ": "
-              << "S: " << susceptibleCount << ", "
-              << "I: " << infectedCount << ", "
-              << "R: " << recoveredCount << ", "
-              << "D: " << deadCount << std::endl;
+    delete[] datalhs[i];
   }
-  // Save to file
-  std::ofstream stream(std::to_string(run) + ".txt");
-  stream << "S: " << susceptibleCount << "\n"
-         << "I: " << infectedCount << "\n"
-         << "R: " << recoveredCount << "\n"
-         << "D: " << deadCount << std::endl;
-  stream.close();
-}
+  delete[] datalhs;
 
-// Main function
-int main(int argc, char *argv[])
-{
-  int print = (argc >= 2) ? atoi(argv[1]) : 0;
-  readLHSMatrix(); // Add this line to read the LHS matrix
-  for (int run = 1; run <= NRUNS; ++run)
-  {
-    runSimulation(run, print);
-  }
   return 0;
 }
