@@ -59,44 +59,52 @@ void updatePopulation(SimulationData &data, double beta, double gamma_, double m
   deadCount = 0;
 
   // Primero, procesar las transiciones de estado
-  for (auto &person : data.people)
+  std::vector<char> newStates(data.people.size());
+  for (size_t i = 0; i < data.people.size(); ++i)
   {
-    if (person.state == 'I')
+    newStates[i] = data.people[i].state;
+    if (data.people[i].state == 'I')
     {
       // Recuperación
       if ((rand() % 100) < (gamma_ * 100))
       {
-        person.state = 'R';
+        newStates[i] = 'R';
       }
       // Muerte
       else if ((rand() % 100) < (mu * 100))
       {
-        person.state = 'D';
+        newStates[i] = 'D';
       }
     }
   }
 
   // Luego, procesar las infecciones
-  for (auto &person : data.people)
+  for (size_t i = 0; i < data.people.size(); ++i)
   {
-    if (person.state == 'S' || person.state == 'R')
+    if (newStates[i] == 'S' || newStates[i] == 'R')
     {
       for (const auto &other : data.people)
       {
         if (other.state == 'I')
         {
-          double distance = std::sqrt(std::pow(person.x - other.x, 2) + std::pow(person.y - other.y, 2));
+          double distance = std::sqrt(std::pow(data.people[i].x - other.x, 2) + std::pow(data.people[i].y - other.y, 2));
           if (distance < infectionRadius)
           {
             if ((rand() % 100) < (beta * 100))
             {
-              person.state = 'I';
+              newStates[i] = 'I';
               break;
             }
           }
         }
       }
     }
+  }
+
+  // Aplicar los nuevos estados
+  for (size_t i = 0; i < data.people.size(); ++i)
+  {
+    data.people[i].state = newStates[i];
   }
 
   // Movimiento aleatorio con distribución uniforme
@@ -295,7 +303,7 @@ int main(int argc, char *argv[])
   lhsmatrix.close();
 
   // Ejecutar la simulación sin GUI
-  int initialInfected = 5; // Puedes cambiar este valor según sea necesario
+  int initialInfected = 10; // Puedes cambiar este valor según sea necesario
   runSimulationWithoutGUI(data, initialInfected, datalhs, nvar, nruns);
 
   if (showGUI)

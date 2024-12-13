@@ -21,7 +21,7 @@ $plot S I R D;
 
 $Method $Rk4			   // Four Order Runge-Kutta 
 
-$lhs 2 beta gamma_ mu;
+$lhs 500 beta gamma_ mu;
          // to run LHS with 10 simulations using 
 	// parameters in the list.
 	// The parameters should have ranges already defined.
